@@ -50,6 +50,7 @@ def home():
             <h1>Practical Assessment</h1>
             <h2>Devmini Jayasiri</h2>
             <p>Web app in the container is running!! Yippiee! 🎀</p>
+            <p>Updated automatically through the CI/CD pipeline! Yayyy!</p>
         </div>
     </body>
     </html>
