@@ -1,0 +1,66 @@
+name: CI/CD Docker Application
+
+#trigger to start workflow automatically
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-test: #CI validation  & docker build test
+    runs-on: ubuntu-latest #runner
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4 #copies github repo onto runner so can access
+
+      - name: Check application files #check
+        run: |
+          if [ -f app.py ] && [ -f requirements.txt ]; then
+            echo "Application files found successfully."
+          else
+            echo "Required files not found."
+            exit 1
+          fi
+
+      - name: Build and test Docker application
+        run: docker build -t devops-web-app . # proceed to build docker image if validation passed
+  
+  build-push:
+    needs: build-test #dependency
+    runs-on: ubuntu-latest
+
+    steps: #automating docker build, docker login, and docker push
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build Docker image
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/devops-web-app:latest .
+
+      - name: Push Docker image to Docker Hub
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/devops-web-app:latest
+
+  deploy:
+    needs: build-push
+    runs-on: self-hosted #local computer
+
+    steps:
+      - name: Pull latest Docker image #to download the newest image
+        run: docker pull ${{ secrets.DOCKERHUB_USERNAME }}/devops-web-app:latest
+
+      - name: Stop old container
+        run: docker stop devops-web-app
+        continue-on-error: true # on first deployment container wont exist. Could kill workflow.
+
+      - name: Remove old container
+        run: docker rm devops-web-app
+        continue-on-error: true
+
+      - name: Run updated application #create new container from updated image
+        run: docker run -d --name devops-web-app -p 5000:5000 ${{ secrets.DOCKERHUB_USERNAME }}/devops-web-app:latest
